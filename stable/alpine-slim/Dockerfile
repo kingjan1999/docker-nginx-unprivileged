@@ -15,6 +15,8 @@ ENV DYNPKG_RELEASE=2
 ARG UID=101
 ARG GID=101
 
+COPY *.patch /src_patches/
+
 RUN set -x \
 # create nginx user/group first, to be consistent throughout docker variants
     && addgroup -g $GID -S nginx || true \
@@ -27,7 +29,7 @@ RUN set -x \
     && apk add --no-cache --virtual .checksum-deps \
         openssl \
     && case "$apkArch" in \
-        x86_64|aarch64) \
+        ALWAYS_BUILT_SOURCE) \
 # arches officially built by upstream
             set -x \
             && KEY_SHA512="e09fa32f0a0eab2b879ccbbc4d0e4fb9751486eedda75e35fac65802cc9faa266425edf83e261137a2f4d16281ce2c1a5f4502930fe75154723da014214f0655" \
@@ -72,6 +74,7 @@ RUN set -x \
                 fi \
                 && tar xzvf f43e929dc7a6111ef5d9ecb281a75749f7934261.tar.gz \
                 && cd pkg-oss-f43e929dc7a6111ef5d9ecb281a75749f7934261 \
+                && cp /src_patches/* contrib/src/nginx/ \
                 && cd alpine \
                 && make base \
                 && apk index --allow-untrusted -o ${tempDir}/packages/alpine/${apkArch}/APKINDEX.tar.gz ${tempDir}/packages/alpine/${apkArch}/*.apk \
@@ -86,6 +89,7 @@ RUN set -x \
     && apk del --no-network .checksum-deps \
 # if we have leftovers from building, let's purge them (including extra, unnecessary build deps)
     && if [ -n "$tempDir" ]; then rm -rf "$tempDir"; fi \
+    && rm -rf /src_patches \
     && if [ -f "/etc/apk/keys/abuild-key.rsa.pub" ]; then rm -f /etc/apk/keys/abuild-key.rsa.pub; fi \
 # Bring in gettext so we can get `envsubst`, then throw
 # the rest away. To do this, we need to install `gettext`
